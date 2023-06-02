@@ -80,13 +80,17 @@ LRESULT CALLBACK mouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             int delta_y = cursor_pos.y - last_position.y;
             was_moved = true;
             last_position = cursor_pos;
-            WINDOWPLACEMENT placement = {};
-            GetWindowPlacement(drag_window_hwnd, &placement);
-            placement.rcNormalPosition.left   += delta_x;
-            placement.rcNormalPosition.top    += delta_y;
-            placement.rcNormalPosition.right  += delta_x;
-            placement.rcNormalPosition.bottom += delta_y;
-            SetWindowPlacement(drag_window_hwnd, &placement);
+            // IDK why, but this method can change the window size off by one
+            //WINDOWPLACEMENT placement = {};
+            //GetWindowPlacement(drag_window_hwnd, &placement);
+            //placement.rcNormalPosition.left   += delta_x;
+            //placement.rcNormalPosition.top    += delta_y;
+            //placement.rcNormalPosition.right  += delta_x;
+            //placement.rcNormalPosition.bottom += delta_y;
+            //SetWindowPlacement(drag_window_hwnd, &placement);
+            RECT window_rect = {};
+            GetWindowRect(drag_window_hwnd, &window_rect);
+            SetWindowPos(drag_window_hwnd, HWND_TOP, window_rect.left + delta_x, window_rect.top + delta_y, 0, 0, SWP_NOSIZE);
         }
     }
     return CallNextHookEx(NULL, nCode, wParam, lParam);
