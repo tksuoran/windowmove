@@ -1,8 +1,12 @@
 # windowmove
 
-Windows application for moving windows by moving mouse while holding capslock key.
+Utility for moving windows by moving mouse while holding capslock key. Runs on Windows and macOS.
 
-## Building using Visual Studio 2022.
+## Windows
+
+The Windows version is `main.cpp`.
+
+### Building using Visual Studio 2022.
 
 - You can download commity edition for free from https://visualstudio.microsoft.com/vs/community/
 
@@ -12,7 +16,7 @@ Windows application for moving windows by moving mouse while holding capslock ke
 
 - Build menu / Build Solution
 
-## Building using Clang
+### Building using Clang
 
 - Install Clang. You can download clang for windows from https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.1/LLVM-17.0.1-win64.exe
 
@@ -24,7 +28,7 @@ Windows application for moving windows by moving mouse while holding capslock ke
 
 - Run `clang++ main.cpp -DUNICODE -luser32.lib -lgdi32 -WindowMove.exe`
 
-## Building using G++
+### Building using G++
 
 I have not tested this myself. Good luck.
 
@@ -32,7 +36,7 @@ I have not tested this myself. Good luck.
 
 - Run `g++ main.cpp -DUNICODE -luser32.lib -lgdi32 -WindowMove.exe`
 
-## Starting WindowMove.exe when you log in to Windows
+### Starting WindowMove.exe when you log in to Windows
 
 - Open Windows file explorer
 
@@ -40,6 +44,56 @@ I have not tested this myself. Good luck.
 
 - Right-mouse-drag WindowMove.exe to Startup folder and choose Create shortcut here. Copying or moving the executable there might also work.
 
-## Limitations
+### Limitations
 
 - When WindowMove is run as a normal user, it is not able to move windows that are run as Administrator. You can run WindowMove as Administrator to work around this issue.
+
+## macOS
+
+The macOS version is `main_macos.mm`.
+
+### Building
+
+- Install the Xcode command line tools if you do not have them: `xcode-select --install`
+
+- Run `make`. This produces `WindowMove.app`.
+
+### Running
+
+- Run `open WindowMove.app`. The app has no window or Dock icon; it just sits in the background.
+
+- On first launch macOS asks for two permissions, both under System Settings > Privacy & Security:
+
+  - **Accessibility** — needed for finding and moving windows
+
+  - **Input Monitoring** — needed for detecting capslock key press and release
+
+- WindowMove notices when the permissions have been granted and activates automatically. If it does not seem to work after granting the permissions, quit it (`killall WindowMove`) and launch it again.
+
+- To quit WindowMove, run `killall WindowMove` or use Activity Monitor.
+
+### Starting WindowMove.app when you log in to macOS
+
+- Open System Settings > General > Login Items, click "+" under "Open at Login" and select WindowMove.app.
+
+### Using through remote desktop software (Parsec, ...)
+
+Remote desktop software does not forward capslock key press and release, only capslock state changes, so the gesture is different when controlling the Mac remotely: tap capslock once to start dragging the window under the cursor, and tap capslock again to stop. The second tap also restores the capslock state on the remote machine.
+
+Tested with Parsec. Other remote desktop software which forwards the capslock state the same way should also work.
+
+### Troubleshooting
+
+- WindowMove logs to `~/Library/Logs/WindowMove.log`.
+
+- `touch ~/Library/Logs/WindowMove.verbose` makes WindowMove log every key event it sees, which helps diagnosing keyboards or remote desktop software whose capslock does not get detected. Note that this logs everything you type into the log file. `rm ~/Library/Logs/WindowMove.verbose` to turn it off; no restart is needed for either.
+
+- Because the app is ad-hoc signed, macOS treats each rebuild as a different app, and silently ignores previously granted permissions. After running `make` again, reset the stale permissions with `tccutil reset Accessibility com.tksuoran.windowmove` and `tccutil reset ListenEvent com.tksuoran.windowmove`, then relaunch WindowMove and grant the permissions again when it asks.
+
+- The "Quit & Reopen" button in the System Settings permission prompt does not manage to quit WindowMove. Use `killall WindowMove` and `open WindowMove.app` instead; Input Monitoring only takes effect for a freshly started process.
+
+### Limitations
+
+- WindowMove cannot move windows of apps running as root, fullscreen windows, or some system UI.
+
+- Built-in Apple keyboards delay capslock key activation slightly (to avoid accidental presses), so a very quick capslock tap and mouse move may not start a drag.
