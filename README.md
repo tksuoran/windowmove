@@ -58,6 +58,8 @@ The macOS version is `main_macos.mm`.
 
 - Run `make`. This produces `WindowMove.app`.
 
+- `make dev` produces a development build with logging enabled, see Troubleshooting. Normal builds have logging compiled out entirely.
+
 ### Running
 
 - Run `open WindowMove.app`. The app has no window or Dock icon; it just sits in the background.
@@ -84,9 +86,7 @@ Tested with Parsec. Other remote desktop software which forwards the capslock st
 
 ### Troubleshooting
 
-- WindowMove logs to `~/Library/Logs/WindowMove.log`.
-
-- `touch ~/Library/Logs/WindowMove.verbose` makes WindowMove log every key event it sees, which helps diagnosing keyboards or remote desktop software whose capslock does not get detected. Note that this logs everything you type into the log file. `rm ~/Library/Logs/WindowMove.verbose` to turn it off; no restart is needed for either.
+- Normal builds do not log anything. To diagnose problems (for example a keyboard or remote desktop software whose capslock does not get detected), build a development build with `make dev` and relaunch. It logs to `~/Library/Logs/WindowMove.log`, including every key event it sees — so everything you type ends up in the log file. Never use a development build for daily work; rebuild with `make` when done. Both rebuilds need the permissions granted again, see below.
 
 - Because the app is ad-hoc signed, macOS treats each rebuild as a different app, and silently ignores previously granted permissions. After running `make` again, reset the stale permissions with `tccutil reset Accessibility com.tksuoran.windowmove` and `tccutil reset ListenEvent com.tksuoran.windowmove`, then relaunch WindowMove and grant the permissions again when it asks.
 

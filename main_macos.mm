@@ -25,9 +25,11 @@
 // physical and injected mouse movement, and the timer only runs during a
 // drag.
 //
-// A small log is written to ~/Library/Logs/WindowMove.log. The app has no
-// visible output when launched with open / as a login item, so the log is the
-// place to look when something does not work.
+// Development builds (make dev) write a log to ~/Library/Logs/WindowMove.log,
+// including every key event seen, which is how keyboards and remote desktop
+// software whose capslock arrives in unexpected ways get diagnosed. Normal
+// builds must never have logging enabled, since the log would contain
+// everything the user types.
 
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
@@ -37,11 +39,12 @@
 #import <IOKit/hidsystem/IOHIDParameter.h>
 #import <IOKit/hidsystem/IOHIDShared.h>
 
+#if defined(WINDOWMOVE_ENABLE_LOGGING)
 #import <cstdarg>
 #import <cstdio>
 #import <ctime>
 #import <initializer_list>
-#import <unistd.h>
+#endif
 
 // Same value as the Windows scancode, by coincidence
 #define VIRTUAL_KEYCODE_CAPSLOCK 0x39
@@ -58,18 +61,10 @@ CFRunLoopTimerRef drag_timer          = nullptr;
 IOHIDManagerRef   hid_manager         = nullptr;
 CFMachPortRef     event_tap           = nullptr;
 io_connect_t      hid_system          = IO_OBJECT_NULL;
-FILE*             log_file            = nullptr;
 
-// When this file exists, all key events from both event sources are logged,
-// not just capslock. Used for diagnosing keyboards / remote desktop software
-// whose events do not arrive the way we expect. The file is checked per
-// event, so verbose logging can be toggled without restarting.
-const char* verbose_flag_path = nullptr;
+#if defined(WINDOWMOVE_ENABLE_LOGGING)
 
-bool verbose_logging()
-{
-    return (verbose_flag_path != nullptr) && (access(verbose_flag_path, F_OK) == 0);
-}
+FILE* log_file = nullptr;
 
 // Logs to both stdout (visible when run from a terminal) and the log file
 // (visible when launched with open / as a login item).
@@ -91,6 +86,13 @@ void log_line(const char* format, ...)
         fflush(stream);
     }
 }
+
+#else
+
+// Logging is compiled out of normal builds
+#define log_line(...) do { } while (0)
+
+#endif
 
 // Current cursor position in global display coordinates (origin at the top
 // left of the primary display, y grows downwards). This is the same
@@ -315,17 +317,18 @@ void hid_value_callback(void* context, IOReturn result, void* sender, IOHIDValue
     }
     const uint32_t usage_page = IOHIDElementGetUsagePage(element);
     const uint32_t usage      = IOHIDElementGetUsage(element);
-    if (verbose_logging()) {
-        // Skip pages which continuously spam values (mouse deltas, buttons)
-        if ((usage_page != kHIDPage_GenericDesktop) && (usage_page != kHIDPage_Button)) {
-            log_line(
-                "hid event: usage_page=0x%x usage=0x%x value=%ld",
-                usage_page,
-                usage,
-                static_cast<long>(IOHIDValueGetIntegerValue(value))
-            );
-        }
+#if defined(WINDOWMOVE_ENABLE_LOGGING)
+    // Log all key events, skipping pages which continuously spam values
+    // (mouse deltas, buttons)
+    if ((usage_page != kHIDPage_GenericDesktop) && (usage_page != kHIDPage_Button)) {
+        log_line(
+            "hid event: usage_page=0x%x usage=0x%x value=%ld",
+            usage_page,
+            usage,
+            static_cast<long>(IOHIDValueGetIntegerValue(value))
+        );
     }
+#endif
     if (usage_page != kHIDPage_KeyboardOrKeypad) {
         return;
     }
@@ -354,15 +357,16 @@ CGEventRef event_tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventRe
     const int64_t keycode    = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
     const int64_t source_pid = CGEventGetIntegerValueField(event, kCGEventSourceUnixProcessID);
     const CGEventFlags flags = CGEventGetFlags(event);
-    if (verbose_logging()) {
-        log_line(
-            "tap key event: type=%u keycode=%lld source_pid=%lld flags=0x%llx",
-            type,
-            static_cast<long long>(keycode),
-            static_cast<long long>(source_pid),
-            static_cast<unsigned long long>(flags)
-        );
-    }
+#if defined(WINDOWMOVE_ENABLE_LOGGING)
+    // Log all key events
+    log_line(
+        "tap key event: type=%u keycode=%lld source_pid=%lld flags=0x%llx",
+        type,
+        static_cast<long long>(keycode),
+        static_cast<long long>(source_pid),
+        static_cast<unsigned long long>(flags)
+    );
+#endif
     if (source_pid == 0) {
         // Hardware event, handled by the HID callback
         return event;
@@ -484,9 +488,10 @@ int main(int argc, char** argv)
     (void)argc;
     (void)argv;
     @autoreleasepool {
+#if defined(WINDOWMOVE_ENABLE_LOGGING)
         NSString* log_path = [@"~/Library/Logs/WindowMove.log" stringByExpandingTildeInPath];
         log_file = fopen(log_path.fileSystemRepresentation, "a");
-        verbose_flag_path = strdup([@"~/Library/Logs/WindowMove.verbose" stringByExpandingTildeInPath].fileSystemRepresentation);
+#endif
         log_line("WindowMove started: hold capslock and move the mouse to drag the window under the cursor");
 
         system_wide_element = AXUIElementCreateSystemWide();
